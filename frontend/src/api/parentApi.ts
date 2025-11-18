@@ -10,7 +10,7 @@ export interface ParentLoginResponse {
 
 
 
-const API_URL = "http://localhost:8000/api";
+const API_URL = "https://knitcash.onrender.com/api";
 
 export const registerParent = async (parentData: any) => {
   const response = await axios.post(`${API_URL}/parents/register`, parentData);
@@ -33,7 +33,7 @@ export const updateStudentDetails = async (applicationId: string, updates: any) 
 };
 
 export const fetchParentChildren = async (parentId: string) => {
-  const response = await axios.get(`http://localhost:8000/api/parents/${parentId}/children`);
+  const response = await axios.get(`https://knitcash.onrender.com/api/parents/${parentId}/children`);
   return response.data.children;
 };
 
