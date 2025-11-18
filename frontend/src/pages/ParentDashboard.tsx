@@ -37,7 +37,7 @@ const ParentDashboard = () => {
     const fetchStudents = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:8000/api/parents/${parentIdNumber}/children`);
+        const response = await axios.get(`https://knitcash.onrender.com/api/parents/${parentIdNumber}/children`);
         setStudents(response.data.children || []);
       } catch (err: any) {
         console.error("❌ Error fetching students:", err);
