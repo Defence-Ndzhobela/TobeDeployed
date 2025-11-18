@@ -62,7 +62,7 @@ const UpdateDetails = () => {
     try {
       // Update each student
       for (const stu of students) {
-        await axios.put(`http://localhost:8000/api/students/${stu.id_number}`, stu);
+        await axios.put(`https://knitcash.onrender.com/api/students/${stu.id_number}`, stu);
       }
       alert("✅ Student(s) updated successfully!");
       navigate("/re-registration/financing", { state: { students, parentId } });
