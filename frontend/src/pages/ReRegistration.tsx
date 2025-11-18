@@ -188,6 +188,7 @@ const ReRegistration = () => {
                         students: students
                           .filter((s) => selectedStudents.includes(s.id))
                           .map((s) => s.rawData),
+                        parentId,
                       },
                     })
                   }

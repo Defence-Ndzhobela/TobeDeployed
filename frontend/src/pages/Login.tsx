@@ -18,9 +18,10 @@ const Login = () => {
     try {
       const parent = await loginParent(idNumber);
       if (parent) {
-        // Optionally store in localStorage or context
+        // Store parent data in localStorage for later use
         localStorage.setItem("parent_id_number", parent.id_number);
         localStorage.setItem("parent_name", parent.full_name);
+        localStorage.setItem("parent_data", JSON.stringify(parent));
 
         // Navigate to parent dashboard
         navigate("/parent-dashboard");

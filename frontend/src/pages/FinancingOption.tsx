@@ -2,6 +2,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Check, AlertCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { saveSelectedPlan } from "@/api/parentApi";
 import Header from "@/components/Header";
 import ProgressSteps from "@/components/ProgressSteps";
 import ProgressBar from "@/components/ProgressBar";
@@ -33,11 +34,16 @@ const FinancingOption = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const studentsFromState: Student[] = (location.state as any)?.students || [];
+  const parentIdFromState = (location.state as any)?.parentId || '';
 
   // start with no selection so user must choose explicitly
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Get parentId from state or localStorage
+  const parentId = parentIdFromState || localStorage.getItem("parent_id_number") || '';
 
   useEffect(() => {
     if (!studentsFromState || studentsFromState.length === 0) {
@@ -48,15 +54,41 @@ const FinancingOption = () => {
     setLoading(false);
   }, [studentsFromState]);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!selectedPlan) {
       // show a toast message instructing the user to select a plan
       toast({ title: "Select a plan", description: "Please select a financing plan before continuing.", variant: "destructive" });
       return;
     }
 
+    // Find the selected plan details
+    const plan = financingPlans.find(p => p.id === selectedPlan);
+    if (!plan) return;
+
+    // Save plan to backend if parentId exists
+    if (parentId) {
+      setSaving(true);
+      console.log("Saving plan for parentId:", parentId, "Plan:", selectedPlan);
+      try {
+        const response = await saveSelectedPlan(parentId, {
+          selected_plan: selectedPlan,
+          total_price: plan.price,
+          period: plan.period
+        });
+        console.log("Plan saved successfully:", response);
+      } catch (err) {
+        console.error("Failed to save plan:", err);
+        toast({ title: "Error", description: "Failed to save selected plan. Please try again.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+    } else {
+      console.warn("No parentId available, skipping plan save");
+    }
+
     // Navigate to Declaration page first (user requested flow: Financing -> Declaration -> Review)
-    navigate("/re-registration/declaration", { state: { students, selectedPlan } });
+    navigate("/re-registration/declaration", { state: { students, selectedPlan, parentId } });
   };
 
   const handlePrevious = () => {
@@ -83,7 +115,7 @@ const FinancingOption = () => {
   const financingPlans: FinancingPlan[] = [
     {
       id: "pay-monthly",
-      title: "Pay Monthly",
+      title: "Monthly Debit Order",
       subtitle: "Zero discount",
       price: 7083,
       period: "per month",
@@ -399,11 +431,11 @@ const FinancingOption = () => {
 
             {/* Navigation Buttons */}
             <div className="flex gap-3 pt-6">
-              <Button variant="outline" onClick={handlePrevious}>
+              <Button variant="outline" onClick={handlePrevious} disabled={saving}>
                 Previous
               </Button>
-              <Button className="ml-auto" onClick={handleContinue}>
-                Continue
+              <Button className="ml-auto" onClick={handleContinue} disabled={saving}>
+                {saving ? "Saving..." : "Continue"}
               </Button>
             </div>
           </div>

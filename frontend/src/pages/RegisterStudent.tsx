@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { registerStudent } from "@/api/studentApi"; 
 
 const RegisterStudent = () => {
   const navigate = useNavigate();
@@ -29,10 +30,42 @@ const RegisterStudent = () => {
     parentId: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    navigate("/");
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  try {
+    // Match backend field names (snake_case)
+    const payload = {
+      id_number: formData.idNumber,
+      surname: formData.surname,
+      first_name: formData.firstName,
+      date_of_birth: formData.dateOfBirth,
+      gender: formData.gender,
+      home_language: formData.homeLanguage,
+      previous_grade: formData.previousGrade,
+      grade_applied_for: formData.gradeAppliedFor,
+      previous_school: formData.previousSchool,
+      street_address: formData.streetAddress,
+      city: formData.city,
+      state: formData.state,
+      postcode: formData.postcode,
+      phone_number: formData.phoneNumber,
+      email: formData.email,
+      password: formData.password,
+      parent_id: formData.parentId, // link student to parent
+    };
+
+    const res = await registerStudent(payload);
+
+    alert("✅ Student registered successfully!");
+    console.log("Student response:", res);
+
+    navigate("/"); // or navigate to dashboard if you prefer
+  } catch (err: any) {
+    console.error("❌ Error registering student:", err);
+    alert(err.response?.data?.detail || "Failed to register student");
+  }
+};
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

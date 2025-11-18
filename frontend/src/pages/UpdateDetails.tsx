@@ -34,9 +34,13 @@ const UpdateDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const studentsFromState: Student[] = (location.state as any)?.students || [];
+  const parentIdFromState = (location.state as any)?.parentId || '';
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Get parentId from state or localStorage
+  const parentId = parentIdFromState || localStorage.getItem("parent_id_number") || '';
 
   useEffect(() => {
     if (!studentsFromState || studentsFromState.length === 0) {
@@ -61,7 +65,7 @@ const UpdateDetails = () => {
         await axios.put(`http://localhost:8000/api/students/${stu.id_number}`, stu);
       }
       alert("✅ Student(s) updated successfully!");
-      navigate("/re-registration/financing", { state: { students } });
+      navigate("/re-registration/financing", { state: { students, parentId } });
     } catch (err) {
       console.error("❌ Failed to update student(s):", err);
       alert("❌ Failed to update student(s). Please try again.");

@@ -8,15 +8,28 @@ export interface ParentLoginResponse {
   phone_number: string;
 }
 
-export const loginParent = async (id_number: string) => {
-  const response = await axios.post("http://localhost:8000/api/login/parent", { id_number });
+
+
+const API_URL = "http://localhost:8000/api";
+
+export const registerParent = async (parentData: any) => {
+  const response = await axios.post(`${API_URL}/parents/register`, parentData);
   return response.data;
 };
 
-// ✅ NEW: Fetch students for logged-in parent
+export const loginParent = async (id_number: string) => {
+  const response = await axios.post(`${API_URL}/login/parent`, { id_number });
+  return response.data;
+};
+
 export const fetchParentStudents = async (parentIdNumber: string) => {
-  const response = await axios.get(`http://localhost:8000/api/dashboard/students/${parentIdNumber}`);
+  const response = await axios.get(`${API_URL}/parents/${parentIdNumber}/students`);
   return response.data.students;
+};
+
+export const updateStudentDetails = async (applicationId: string, updates: any) => {
+  const response = await axios.put(`${API_URL}/parents/students/${applicationId}`, updates);
+  return response.data.student;
 };
 
 export const fetchParentChildren = async (parentId: string) => {
@@ -24,8 +37,17 @@ export const fetchParentChildren = async (parentId: string) => {
   return response.data.children;
 };
 
-// ✅ Update student information
-export const updateStudentDetails = async (applicationId: string, updates: any) => {
-  const response = await axios.put(`http://localhost:8000/api/parents/students/${applicationId}`, updates);
-  return response.data.student;
+export const saveSelectedPlan = async (parentId: string, planData: any) => {
+  const response = await axios.post(`${API_URL}/parents/${parentId}/selected-plan`, planData);
+  return response.data;
+};
+
+export const fetchSelectedPlan = async (parentId: string) => {
+  const response = await axios.get(`${API_URL}/parents/${parentId}/selected-plan`);
+  return response.data.plan;
+};
+
+export const sendRegistrationEmail = async (parentId: string, emailData: any) => {
+  const response = await axios.post(`${API_URL}/parents/${parentId}/send-registration-email`, emailData);
+  return response.data;
 };

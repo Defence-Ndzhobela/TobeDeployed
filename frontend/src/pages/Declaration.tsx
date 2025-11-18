@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 
 
 interface ConfirmationChecks {
+  agree_audit: boolean;
+  agree_affordability: boolean;
   agree_truth: boolean;
   agree_policies: boolean;
   agree_financial: boolean;
@@ -25,47 +27,15 @@ enum AutoSaveStatus {
   Saved = 'Auto-saved',
 }
 
-interface Plan {
-  id: string;
-  name: string;
-  price: string;
-  description: string;
-  features: string[];
-  popular?: boolean;
-}
-
 const CONFIRMATIONS = [
+  { id: 'agree_audit', label: 'I consent to storing my information for the school audit processes' },
+  { id: 'agree_affordability', label: 'I consent to the school processing my information for affordability check' },
   { id: 'agree_truth', label: 'I confirm that all information provided in this application is true and correct.' },
   { id: 'agree_policies', label: 'I agree to abide by the school\'s rules, policies, and code of conduct.' },
   { id: 'agree_financial', label: 'I acknowledge responsibility for all school fees as per the agreement.' },
   { id: 'agree_verification', label: 'I consent to the school verifying my information where required.' },
   { id: 'agree_data_processing', label: 'I consent to the storage and processing of my personal information.' },
 ] as const;
-
-const PAYMENT_PLANS: Plan[] = [
-  {
-    id: 'full-payment',
-    name: 'Full Payment',
-    price: 'R 50,000',
-    description: 'Pay full tuition upfront',
-    features: ['5% discount', 'Immediate enrollment', 'Priority support'],
-  },
-  {
-    id: 'semi-annual',
-    name: 'Semi-Annual',
-    price: 'R 26,000',
-    description: 'Two payments per year',
-    features: ['2 installments', 'Flexible schedule', 'Standard support'],
-    popular: true,
-  },
-  {
-    id: 'monthly',
-    name: 'Monthly Plan',
-    price: 'R 4,500',
-    description: 'Monthly installments',
-    features: ['12 monthly payments', 'Maximum flexibility', 'Email support'],
-  },
-];
 
 type ConfirmationKeys = typeof CONFIRMATIONS[number]['id'];
 
@@ -121,6 +91,8 @@ const Card: React.FC<{ title: string; subtitle?: string; children: React.ReactNo
 
 const DeclarationPage: React.FC = () => {
   const [confirmations, setConfirmations] = useState<ConfirmationChecks>({
+    agree_audit: false,
+    agree_affordability: false,
     agree_truth: false,
     agree_policies: false,
     agree_financial: false,
@@ -129,16 +101,17 @@ const DeclarationPage: React.FC = () => {
   });
   const [fullName, setFullName] = useState('');
   const [city, setCity] = useState('');
-  const [selectedPlan, setSelectedPlan] = useState<string>('semi-annual');
   const navigate = useNavigate();
   const location = useLocation();
   const incomingStudents: any[] = (location.state as any)?.students || [];
-  const incomingSelectedPlan: string = (location.state as any)?.selectedPlan || '';
+  const parentIdFromState = (location.state as any)?.parentId || '';
   const [students, setStudents] = useState<any[]>(incomingStudents);
   const [isContinueDisabled, setIsContinueDisabled] = useState(true);
   const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
   const [autoSaveStatus, setAutoSaveStatus] = useState<AutoSaveStatus>(AutoSaveStatus.Idle);
-  const [currentTab, setCurrentTab] = useState<'declaration' | 'payment'>('declaration');
+
+  // Get parentId from state or localStorage
+  const parentId = parentIdFromState || localStorage.getItem("parent_id_number") || '';
 
   const autoSaveTimeoutRef = useRef<number | null>(null);
 
@@ -175,7 +148,6 @@ const DeclarationPage: React.FC = () => {
           confirmations,
           fullName,
           city,
-          selectedPlan,
           date: today.replace(/\//g, '-'),
           status: 'in_progress',
         }),
@@ -191,7 +163,7 @@ const DeclarationPage: React.FC = () => {
     } finally {
       setTimeout(() => setAutoSaveStatus(AutoSaveStatus.Idle), 2000);
     }
-  }, [confirmations, fullName, city, selectedPlan, today]);
+  }, [confirmations, fullName, city, today]);
 
   useEffect(() => {
     if (autoSaveTimeoutRef.current) {
@@ -207,11 +179,10 @@ const DeclarationPage: React.FC = () => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmations, fullName, city, selectedPlan]);
+  }, [confirmations, fullName, city, today]);
 
-  // initialize selectedPlan and students from navigation state when present
+  // initialize students from navigation state when present
   useEffect(() => {
-    if (incomingSelectedPlan) setSelectedPlan(incomingSelectedPlan);
     if (incomingStudents && incomingStudents.length) setStudents(incomingStudents);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -219,8 +190,8 @@ const DeclarationPage: React.FC = () => {
   useEffect(() => {
     const allChecked = Object.values(confirmations).every(Boolean);
     const isNameValid = fullName.trim().length >= 3;
-    setIsContinueDisabled(!(allChecked && isNameValid && selectedPlan));
-  }, [confirmations, fullName, selectedPlan]);
+    setIsContinueDisabled(!(allChecked && isNameValid));
+  }, [confirmations, fullName]);
 
   const handleSaveProgress = async () => {
     console.log('Saving progress...');
@@ -234,7 +205,6 @@ const DeclarationPage: React.FC = () => {
           confirmations,
           fullName,
           city,
-          selectedPlan,
           date: today.replace(/\//g, '-'),
           status: 'in_progress',
         }),
@@ -253,7 +223,7 @@ const DeclarationPage: React.FC = () => {
     if (isContinueDisabled) return;
 
     // Navigate to review page immediately so the user proceeds regardless of network latency.
-    navigate('/re-registration/review', { state: { students, selectedPlan } });
+    navigate('/re-registration/review', { state: { students, parentId } });
 
     // Submit declaration in the background (fire-and-forget). Errors are logged but do not block navigation.
     (async () => {
@@ -267,7 +237,6 @@ const DeclarationPage: React.FC = () => {
             confirmations,
             fullName,
             city,
-            selectedPlan,
             date: today.replace(/\//g, '-'),
             status: 'completed',
           }),
@@ -311,37 +280,12 @@ const DeclarationPage: React.FC = () => {
 
           <div className="space-y-6 w-full max-w-3xl">
             <div className="mb-8">
-              <h2 className="text-2xl font-semibold">Declaration & Payment</h2>
+              <h2 className="text-2xl font-semibold">Declaration</h2>
               <p className="text-sm text-muted-foreground mt-2">Please read and confirm the declarations. Select payment options and sign digitally to proceed.</p>
             </div>
 
-          {/* TAB NAVIGATION */}
-          <div className="flex border-b border-gray-200 mb-8">
-            <button
-              onClick={() => setCurrentTab('declaration')}
-              className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-                currentTab === 'declaration'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Declaration
-            </button>
-            <button
-              onClick={() => setCurrentTab('payment')}
-              className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-                currentTab === 'payment'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Payment Plan
-            </button>
-          </div>
-
-          {/* DECLARATION TAB */}
-          {currentTab === 'declaration' && (
-            <div className="space-y-8">
+          {/* DECLARATION SECTION */}
+          <div className="space-y-8">
               <Card title="Declaration Text">
                 <div className="space-y-4 max-h-48 overflow-y-auto p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700">
                   <div>
@@ -473,119 +417,12 @@ const DeclarationPage: React.FC = () => {
                 </div>
               </Card>
             </div>
-          )}
+          {/* end DECLARATION SECTION */}
 
-          {/* end DECLARATION TAB */}
-
-          {/* PAYMENT PLAN TAB */}
-          {currentTab === 'payment' && (
-            <div className="space-y-8">
-              <Card
-                title="Select Payment Plan"
-                subtitle="Choose the payment plan that works best for you. Selected plan will be highlighted in blue."
-              >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {PAYMENT_PLANS.map((plan) => (
-                    <button
-                      key={plan.id}
-                      onClick={() => setSelectedPlan(plan.id)}
-                      className={`relative p-6 rounded-lg border-2 transition-all transform hover:scale-105 ${
-                        selectedPlan === plan.id
-                          ? 'border-blue-600 bg-blue-50 shadow-lg ring-2 ring-blue-300'
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }`}
-                    >
-                      {/* POPULAR BADGE */}
-                      {plan.popular && (
-                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                          <span className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap">
-                            Most Popular
-                          </span>
-                        </div>
-                      )}
-
-                      {/* SELECTION CHECKMARK */}
-                      {selectedPlan === plan.id && (
-                        <div className="absolute top-3 right-3">
-                          <div className="bg-blue-600 rounded-full p-1">
-                            <CheckIcon className="w-5 h-5 text-white" />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* PLAN CONTENT */}
-                      <div className="text-left">
-                        <h4 className="text-lg font-bold text-gray-900 mb-1">{plan.name}</h4>
-                        <p className="text-3xl font-bold text-blue-600 mb-1">{plan.price}</p>
-                        <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
-
-                        {/* FEATURES LIST */}
-                        <ul className="space-y-2">
-                          {plan.features.map((feature, idx) => (
-                            <li key={idx} className="flex items-start text-sm text-gray-700">
-                              <svg className="w-4 h-4 mr-2 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              {feature}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* SELECT BUTTON */}
-                      <button
-                        className={`mt-6 w-full py-2 px-4 rounded-md font-medium text-sm transition-colors ${
-                          selectedPlan === plan.id
-                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                            : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                        }`}
-                      >
-                        {selectedPlan === plan.id ? 'Selected' : 'Select Plan'}
-                      </button>
-                    </button>
-                  ))}
-                </div>
-
-                {/* SELECTED PLAN SUMMARY */}
-                {selectedPlan && (
-                  <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h4 className="font-semibold text-gray-900 mb-2">Your Selection:</h4>
-                    <p className="text-gray-700">
-                      <span className="font-medium text-blue-600">
-                        {PAYMENT_PLANS.find((p) => p.id === selectedPlan)?.name}
-                      </span>
-                      {' — '}
-                      {PAYMENT_PLANS.find((p) => p.id === selectedPlan)?.description}
-                    </p>
-                    <p className="text-lg font-bold text-blue-600 mt-2">
-                      {PAYMENT_PLANS.find((p) => p.id === selectedPlan)?.price}
-                    </p>
-                  </div>
-                )}
-              </Card>
-
-              <Card title="Payment Terms">
-                <div className="space-y-3 text-sm text-gray-700">
-                  <p>
-                    <strong>First Payment:</strong> Due upon enrollment confirmation
-                  </p>
-                  <p>
-                    <strong>Subsequent Payments:</strong> As per selected plan schedule
-                  </p>
-                  <p>
-                    <strong>Payment Methods:</strong> Bank transfer, Credit card, or Check
-                  </p>
-                  <p>
-                    <strong>Late Payment Policy:</strong> A 2% monthly interest charge applies to overdue payments
-                  </p>
-                </div>
-              </Card>
-            </div>
-          )}
 
           {/* FOOTER */}
           <footer className="mt-12 pt-6 border-t border-gray-200 flex items-center justify-between">
-            <button className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button onClick={() => navigate('/re-registration/financing', { state: { students, parentId } })} className="flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
               <ArrowLeftIcon className="w-5 h-5 mr-2 transform -translate-x-1" />
               Back
             </button>

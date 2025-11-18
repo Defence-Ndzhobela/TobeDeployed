@@ -5,9 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { registerParent } from "@/api/parentApi";
 
 const RegisterParent = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -21,26 +24,51 @@ const RegisterParent = () => {
     postcode: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Mock registration - navigate to dashboard
-    navigate("/parent-dashboard");
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    const payload = {
+      full_name: formData.fullName,
+      email: formData.email,
+      phone_number: formData.phoneNumber,
+      id_number: formData.idNumber,
+      password: formData.password,
+      street_address: formData.streetAddress,
+      city: formData.city,
+      state: formData.state,
+      postcode: formData.postcode,
+    };
+
+    try {
+      setLoading(true);
+      const response = await registerParent(payload);
+      console.log("✅ Registered:", response);
+
+      alert("Parent registered successfully!");
+      navigate("/");
+    } catch (err: any) {
+      console.error("❌ Registration failed:", err);
+      setError(err.response?.data?.detail || "Registration failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="mx-auto max-w-2xl py-8">
-        <Button
-          variant="ghost"
-          className="mb-6"
-          onClick={() => navigate("/")}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Login
+        <Button variant="ghost" className="mb-6" onClick={() => navigate("/")}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Login
         </Button>
 
         <Card>
@@ -52,9 +80,13 @@ const RegisterParent = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <p className="text-red-600 bg-red-100 p-2 rounded-md text-sm">{error}</p>
+              )}
+
               <div className="space-y-4">
                 <h3 className="font-semibold text-foreground">Personal Information</h3>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
                   <Input
@@ -133,7 +165,7 @@ const RegisterParent = () => {
 
               <div className="space-y-4">
                 <h3 className="font-semibold text-foreground">Address Information</h3>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="streetAddress">Street Address</Label>
                   <Input
@@ -190,8 +222,8 @@ const RegisterParent = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" className="flex-1">
-                  Register
+                <Button type="submit" className="flex-1" disabled={loading}>
+                  {loading ? "Registering..." : "Register"}
                 </Button>
               </div>
             </form>
