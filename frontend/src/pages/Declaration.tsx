@@ -139,7 +139,7 @@ const DeclarationPage: React.FC = () => {
   const runAutoSave = useCallback(async () => {
     setAutoSaveStatus(AutoSaveStatus.Saving);
     try {
-      const response = await fetch('https://knitcash.onrender.com/submit-declaration', {
+      const response = await fetch('http://localhost:5002/submit-declaration', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +196,7 @@ const DeclarationPage: React.FC = () => {
   const handleSaveProgress = async () => {
     console.log('Saving progress...');
     try {
-      const response = await fetch('https://knitcash.onrender.com/submit-declaration', {
+      const response = await fetch('http://localhost:5002/submit-declaration', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -228,7 +228,7 @@ const DeclarationPage: React.FC = () => {
     // Submit declaration in the background (fire-and-forget). Errors are logged but do not block navigation.
     (async () => {
       try {
-        const response = await fetch('https://knitcash.onrender.com/submit-declaration', {
+        const response = await fetch('http://localhost:5002/submit-declaration', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

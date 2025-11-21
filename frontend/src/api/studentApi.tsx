@@ -1,7 +1,7 @@
 // src/api/studentApi.ts
 import axios from "axios";
 
-const API_BASE_URL = "https://knitcash.onrender.com/api/students";
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/students`;
 
 // ✅ Register student
 export const registerStudent = async (student: any) => {
