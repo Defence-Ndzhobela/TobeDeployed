@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Calendar, CheckCircle2, CreditCard, FileText } from "lucide-react";
+import { Calendar, CheckCircle2, CreditCard, FileText, Loader2, AlertCircle, ChevronRight } from "lucide-react";
 import Header from "@/components/Header";
 import ProgressSteps from "@/components/ProgressSteps";
 import ProgressBar from "@/components/ProgressBar";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,6 +21,8 @@ const ReviewSubmit = () => {
   const [students, setStudents] = useState<any[]>( (location.state as any)?.students || []);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [parentData, setParentData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Fetch parent data
   useEffect(() => {
@@ -60,6 +62,7 @@ const ReviewSubmit = () => {
     async function fetchPlan() {
       if (!parentId) {
         console.warn("No parentId for fetching plan");
+        setLoading(false);
         return;
       }
       try {
@@ -67,6 +70,8 @@ const ReviewSubmit = () => {
         setSelectedPlan(plan);
       } catch (err) {
         console.error("Failed to fetch selected plan:", err);
+      } finally {
+        setLoading(false);
       }
     }
     fetchPlan();
@@ -83,107 +88,180 @@ const ReviewSubmit = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="mx-auto max-w-7xl p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground">Student Re-Registration 2024</h1>
-          <p className="text-muted-foreground">
-            Complete the re-registration process for the upcoming academic year
-          </p>
+        {/* Page Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
+              <FileText className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-bold text-foreground">Review & Submit</h1>
+              <p className="text-muted-foreground mt-1">Final step - Confirm your registration</p>
+            </div>
+          </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
           {/* Progress Sidebar */}
-          <Card className="h-fit p-6">
-            <h2 className="mb-6 text-lg font-semibold">Progress</h2>
-            <ProgressSteps steps={steps} currentStep={4} />
-            <div className="mt-6">
-              <ProgressBar percentage={100} />
-            </div>
-          </Card>
-
-          {/* Student Cards */}
-          <div className="space-y-6">
-            {students.map((stu, index) => (
-              <Card key={stu.application_id || index} className="p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src="/placeholder.svg" />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {stu.first_name?.[0]}{stu.surname?.[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h2 className="text-xl font-semibold">{stu.first_name} {stu.surname}</h2>
-                      <p className="text-sm text-muted-foreground">Re-registration Details</p>
-                    </div>
+          <div>
+            <Card className="sticky top-6">
+              <CardHeader>
+                <CardTitle className="text-lg">Progress</CardTitle>
+                <CardDescription>Registration Steps</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <ProgressSteps steps={steps} currentStep={4} />
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Step Completion</span>
+                    <span className="text-sm font-bold text-primary">100%</span>
                   </div>
-                  <Badge className="bg-success text-success-foreground">Active Student</Badge>
+                  <ProgressBar percentage={100} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content */}
+          <div className="space-y-6">
+            {/* Summary Alert */}
+            <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-red-600 font-semibold">
+                Please review all information carefully before submitting. You can go back to make changes if needed.
+              </AlertDescription>
+            </Alert>
+
+            {/* Student Review Cards */}
+            {students.map((stu, index) => (
+              <Card key={stu.application_id || index} className="overflow-hidden">
+                {/* Student Header */}
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200 p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-16 w-16">
+                        <AvatarFallback className="bg-blue-600 text-white font-bold text-lg">
+                          {stu.first_name?.[0]}{stu.surname?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h2 className="text-2xl font-bold text-foreground">{stu.first_name} {stu.surname}</h2>
+                        <p className="text-sm text-blue-700 mt-1">Student ID: {stu.id_number || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-green-600 text-white">Ready to Submit</Badge>
+                  </div>
                 </div>
 
-                <div className="space-y-6">
+                {/* Review Content */}
+                <CardContent className="pt-6 space-y-6">
+                  {/* Registration Summary */}
                   <div>
-                    <h3 className="mb-4 text-lg font-semibold">Step 4 of 4</h3>
-                    <h2 className="text-2xl font-bold">Payment & Confirmation</h2>
-                  </div>
-
-                  <div>
-                    <h3 className="mb-4 font-semibold">Review & Confirm Registration</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Please review the registration summary and payment details before confirming
-                    </p>
-                  </div>
-
-                  <Card className="border-primary/20 bg-accent/50 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-primary" />
-                      <h4 className="font-semibold">Registration Summary</h4>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      Registration Summary
+                    </h3>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="border-r border-green-200 pr-4">
+                          <p className="text-sm font-medium text-green-700">Student Name</p>
+                          <p className="text-lg font-bold text-foreground mt-1">{stu.first_name} {stu.surname}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-green-700">Grade Level</p>
+                          <p className="text-lg font-bold text-foreground mt-1">{stu.grade_applied_for}</p>
+                        </div>
+                      </div>
                     </div>
+                  </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Student Name</p>
-                        <p className="font-medium">{stu.first_name} {stu.surname}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Enrolling For</p>
-                        <p className="font-medium">{stu.grade_applied_for}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Selected Payment Plan</p>
-                        <p className="font-medium">{selectedPlan?.selected_plan?.replace(/-/g, ' ') || '—'}</p>
+                  {/* Payment Plan Summary */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <CreditCard className="h-5 w-5 text-blue-600" />
+                      Payment Plan Details
+                    </h3>
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-200 space-y-3">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-sm font-medium text-blue-700">Selected Plan</p>
+                          <p className="text-lg font-bold text-foreground mt-1">
+                            {selectedPlan?.selected_plan?.replace(/-/g, ' ') || 'Loading...'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-blue-700">Total Amount</p>
+                          <p className="text-lg font-bold text-foreground mt-1">
+                            {selectedPlan ? `R ${selectedPlan.total_price}` : 'Loading...'}
+                          </p>
+                        </div>
                         {selectedPlan && (
                           <>
-                            <p className="text-sm text-muted-foreground">Total: R {selectedPlan.total_price}</p>
-                            <p className="text-sm text-muted-foreground">Period: {selectedPlan.period}</p>
+                            <div>
+                              <p className="text-sm font-medium text-blue-700">Payment Period</p>
+                              <p className="text-lg font-bold text-foreground mt-1">{selectedPlan.period}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-blue-700">Status</p>
+                              <Badge className="mt-1 bg-blue-600">Confirmed</Badge>
+                            </div>
                           </>
                         )}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Terms & Conditions */}
+                  <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id={`terms-${index}`}
+                        checked={agreedToTerms}
+                        onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                        className="mt-1"
+                      />
                       <div>
-                        <p className="text-sm text-muted-foreground">Registration Status</p>
-                        <Badge className="bg-success text-success-foreground">Ready to Submit</Badge>
+                        <label htmlFor={`terms-${index}`} className="text-sm font-medium text-foreground cursor-pointer">
+                          I confirm that all information provided is accurate and complete
+                        </label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          By checking this box, you confirm that the registration details are correct and you authorize the submission of this re-registration.
+                        </p>
                       </div>
                     </div>
-                  </Card>
-                </div>
+                  </div>
+                </CardContent>
               </Card>
             ))}
 
-            {/* Single Previous & Complete Registration Buttons */}
-            <div className="flex items-center justify-between border-t pt-4">
+            {/* Action Buttons */}
+            <div className="flex gap-3 justify-between pt-6 border-t">
               <Button
-                variant="ghost"
+                variant="outline"
                 onClick={() => navigate("/re-registration/financing", { state: { students, parentId } })}
               >
-                Previous
+                Back
               </Button>
-              <p className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground">
                 Step 4 of 4 • {students.length} {students.length === 1 ? 'student' : 'students'}
-              </p>
+              </div>
               <Button
                 size="lg"
+                disabled={!agreedToTerms || loading}
                 onClick={() => navigate("/re-registration/success", { state: { students, parentId, parentData } })}
+                className="gap-2"
               >
-                Complete Registration
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    Complete Registration
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
