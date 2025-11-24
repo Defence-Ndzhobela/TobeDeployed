@@ -13,6 +13,7 @@ import FinancingOption from "./pages/FinancingOption";
 import ReviewSubmit from "./pages/ReviewSubmit";
 import DeclarationPage from "./pages/Declaration";
 import RegistrationSuccess from "./pages/RegistrationSuccess";
+import FeeForecastingPage from "./pages/FeeForecastingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/register-parent" element={<RegisterParent />} />
           <Route path="/register-student" element={<RegisterStudent />} />
           <Route path="/parent-dashboard" element={<ParentDashboard />} />
+          <Route path="/fee-forecasting" element={<FeeForecastingPage />} />
           <Route path="/re-registration" element={<ReRegistration />} />
           <Route path="/re-registration/update-details" element={<UpdateDetails />} />
           <Route path="/re-registration/financing" element={<FinancingOption />} />

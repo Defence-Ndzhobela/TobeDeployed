@@ -4,6 +4,7 @@ import Header from '@/components/Header';
 import ProgressSteps from '@/components/ProgressSteps';
 import ProgressBar from '@/components/ProgressBar';
 import { Button } from '@/components/ui/button';
+import { API_BASE_URL } from '@/config/apiConfig';
 
 // ============================================================================
 // TYPES & CONSTANTS
@@ -139,7 +140,7 @@ const DeclarationPage: React.FC = () => {
   const runAutoSave = useCallback(async () => {
     setAutoSaveStatus(AutoSaveStatus.Saving);
     try {
-      const response = await fetch('http://localhost:5002/submit-declaration', {
+      const response = await fetch(`${API_BASE_URL}/declarations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +197,7 @@ const DeclarationPage: React.FC = () => {
   const handleSaveProgress = async () => {
     console.log('Saving progress...');
     try {
-      const response = await fetch('http://localhost:5002/submit-declaration', {
+      const response = await fetch(`${API_BASE_URL}/declarations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -228,7 +229,7 @@ const DeclarationPage: React.FC = () => {
     // Submit declaration in the background (fire-and-forget). Errors are logged but do not block navigation.
     (async () => {
       try {
-        const response = await fetch('http://localhost:5002/submit-declaration', {
+        const response = await fetch(`${API_BASE_URL}/declarations`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

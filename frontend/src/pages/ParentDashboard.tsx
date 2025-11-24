@@ -37,6 +37,16 @@ interface DashboardData {
   fee_breakdown: FeeBreakdown;
 }
 
+interface StudentResponse {
+  students?: Array<{
+    application_id?: string;
+    id_number: string;
+    first_name: string;
+    surname: string;
+    grade_applied_for?: string;
+  }>;
+}
+
 const ParentDashboard = () => {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -57,7 +67,7 @@ const ParentDashboard = () => {
         
         // First, try to fetch from the dashboard endpoint
         try {
-          const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/parents/${parentIdNumber}/dashboard`);
+          const response = await axios.get<DashboardData>(`${import.meta.env.VITE_API_BASE_URL}/parents/${parentIdNumber}/dashboard`);
           setDashboardData(response.data);
           return;
         } catch (dashboardError) {
@@ -65,7 +75,7 @@ const ParentDashboard = () => {
         }
 
         // If dashboard endpoint fails, fetch students directly
-        const studentsResponse = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/parents/${parentIdNumber}/students`);
+        const studentsResponse = await axios.get<StudentResponse>(`${import.meta.env.VITE_API_BASE_URL}/parents/${parentIdNumber}/students`);
         const students = studentsResponse.data.students || [];
 
         if (students.length === 0) {
@@ -80,7 +90,7 @@ const ParentDashboard = () => {
         const totalMonthlyFees = totalLearners * monthlyFeePerStudent;
         
         // Transform student data to Learner format
-        const learners: Learner[] = students.map((student: any) => ({
+        const learners: Learner[] = students.map((student) => ({
           id: student.application_id || student.id_number,
           first_name: student.first_name,
           surname: student.surname,
@@ -229,11 +239,11 @@ const ParentDashboard = () => {
               <Plus className="h-4 w-4" />
               Re-registration
             </Button>
-            <Button variant="outline" onClick={() => navigate("/notifications")} size="icon">
-              <Bell className="h-5 w-5" />
+            <Button onClick={() => navigate("/fee-forecasting")} className="gap-2 bg-purple-600 hover:bg-purple-700 text-white">
+              📊 Fee Forecasting
             </Button>
-            <Button onClick={() => navigate("/parent-profile")} className="bg-green-600 hover:bg-green-700 text-white">
-              My Profile
+            <Button className="bg-green-600 hover:bg-green-700 text-white">
+              Request Statement
             </Button>
           </div>
         </div>
