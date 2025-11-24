@@ -418,7 +418,6 @@ const ParentDashboard = () => {
                         <Button
                           variant="link"
                           size="sm"
-                          onClick={() => navigate(`/learner/${learner.id}`)}
                           className="text-primary hover:underline"
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -504,10 +503,6 @@ const ParentDashboard = () => {
                       <Button
                         size="sm"
                         className="w-full bg-primary hover:bg-primary/90 text-white text-xs"
-                        onClick={() => {
-                          // Navigate to payment page or open payment modal
-                          navigate(`/payment/${learner.id}`);
-                        }}
                       >
                         Make Payment
                       </Button>

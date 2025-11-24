@@ -69,28 +69,6 @@ const Login = () => {
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? "Logging in..." : "Login"}
             </Button>
-
-            <div className="space-y-2 text-center text-sm">
-              <p className="text-muted-foreground">Don't have an account?</p>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => navigate("/register-parent")}
-                >
-                  Register as Parent
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => navigate("/register-student")}
-                >
-                  Register as Student
-                </Button>
-              </div>
-            </div>
           </form>
         </CardContent>
       </Card>
