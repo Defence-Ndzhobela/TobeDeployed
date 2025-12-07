@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from services.student_service import create_student, get_students_by_parent_id, update_student_by_id_number
+from services.student_service import create_student, get_students_by_parent_id, get_students_by_user_id, update_student_by_id_number
 
 # Use a clear API prefix so frontend (/api/students/...) matches the backend routes
 router = APIRouter(prefix="/api/students", tags=["Students"])
@@ -23,6 +23,17 @@ def get_students_for_parent(parent_id: str):
         if not students:
             raise HTTPException(status_code=404, detail="No students found for this parent.")
         return {"students": students}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching students: {str(e)}")
+
+
+@router.get("/user/{user_id}")
+def get_students_for_user(user_id: str):
+    try:
+        students = get_students_by_user_id(user_id)
+        if not students:
+            raise HTTPException(status_code=404, detail="No students found for this user.")
+        return students
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching students: {str(e)}")
 

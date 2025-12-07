@@ -1,9 +1,20 @@
-import { Bell, BookOpen } from "lucide-react";
+import { Bell, BookOpen, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/config/apiConfig";
 
 interface HeaderProps {
   showNotifications?: boolean;
+}
+
+interface UserInfo {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const Header = ({ showNotifications = true }: HeaderProps) => {
@@ -12,20 +23,71 @@ const Header = ({ showNotifications = true }: HeaderProps) => {
   const [userInitials, setUserInitials] = useState("PA");
 
   useEffect(() => {
-    // Get parent info from localStorage
-    const name = localStorage.getItem("parent_name");
-    if (name) {
-      setUserName(name);
+    const fetchUserInfo = async () => {
+      try {
+        const userId = localStorage.getItem("user_id");
+        console.log("🔍 Header: user_id from localStorage:", userId);
 
-      // Generate initials from name
-      const initials = name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
-      setUserInitials(initials);
-    }
+        if (!userId) {
+          console.warn("⚠️ Header: No user_id found in localStorage");
+          return;
+        }
+
+        console.log(`📍 Header: Fetching user info from /api/user/${userId}`);
+        const response = await fetch(`${API_BASE_URL}/user/${userId}`);
+        console.log("📡 Header: Response status:", response.status);
+
+        if (!response.ok) {
+          console.warn("⚠️ Header: API response not OK:", response.status, response.statusText);
+          return;
+        }
+
+        const userData: UserInfo = await response.json();
+        console.log("📦 Header: API response data:", JSON.stringify(userData, null, 2));
+
+        if (userData.full_name) {
+          console.log("✅ Header: Setting user name to:", userData.full_name);
+          setUserName(userData.full_name);
+          localStorage.setItem("parent_name", userData.full_name);
+
+          // Generate initials from full_name
+          const initials = userData.full_name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2);
+          setUserInitials(initials);
+
+          // Set role based on role from database
+          if (userData.role) {
+            const roleDisplay = userData.role.charAt(0).toUpperCase() + userData.role.slice(1) + " Account";
+            setUserRole(roleDisplay);
+          }
+        } else {
+          console.warn("⚠️ Header: No full_name in response data. Full response:", userData);
+        }
+      } catch (error) {
+        console.error("❌ Header: Error fetching user info:", error);
+
+        // Fallback: Get parent info from localStorage
+        const name = localStorage.getItem("parent_name");
+        if (name) {
+          console.log("📝 Header: Using fallback parent_name from localStorage:", name);
+          setUserName(name);
+
+          const initials = name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2);
+          setUserInitials(initials);
+        }
+      }
+    };
+
+    fetchUserInfo();
   }, []);
 
   return (
@@ -47,6 +109,13 @@ const Header = ({ showNotifications = true }: HeaderProps) => {
               <Bell className="h-5 w-5 text-muted-foreground" />
             </button>
           )}
+          <button
+            onClick={() => window.location.href = "http://localhost:8080/"}
+            className="rounded-full p-2 hover:bg-red-100 transition-colors"
+            title="Logout"
+          >
+            <LogOut className="h-5 w-5 text-red-600" />
+          </button>
           <div className="flex items-center gap-3">
             <Avatar>
               <AvatarImage src="/placeholder.svg" />

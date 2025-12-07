@@ -9,6 +9,7 @@ import ProgressBar from "@/components/ProgressBar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getFeeByGrade } from "@/services/schoolFeesService";
 
 type PlanFeature = { text: string; icon?: "check" | "info" };
 type FinancingPlan = {
@@ -34,16 +35,73 @@ const FinancingOption = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const studentsFromState: Student[] = (location.state as any)?.students || [];
-  const parentIdFromState = (location.state as any)?.parentId || '';
 
   // start with no selection so user must choose explicitly
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fees, setFees] = useState<any>(null);
+  const [feesLoading, setFeesLoading] = useState(false);
 
-  // Get parentId from state or localStorage
-  const parentId = parentIdFromState || localStorage.getItem("parent_id_number") || '';
+  // Get applicationId from first student
+  const applicationId = studentsFromState?.[0]?.application_id || '';
+
+  // Map grade name to database grade format (e.g., "Grade 1", "Grade R")
+  const mapGradeToDbFormat = (grade: string | undefined): string => {
+    if (!grade) return 'Grade 1'; // default
+    
+    const gradeLower = grade.toLowerCase().trim();
+    
+    // Handle "Grade X" format - already in DB format
+    if (gradeLower.startsWith('grade ')) {
+      return grade; // Return as-is, it's already in correct format
+    }
+    
+    // Handle numeric format (e.g., "10", "12", "0")
+    const gradeNum = parseInt(grade);
+    if (!isNaN(gradeNum)) {
+      if (gradeNum === 0) return 'Grade R';
+      return `Grade ${gradeNum}`;
+    }
+    
+    // Handle old "GR_X-X" format for backward compatibility
+    if (grade.startsWith('GR_')) {
+      // Convert GR_R to Grade R, GR_1-6 to Grade 1-6 range, etc.
+      if (grade === 'GR_R') return 'Grade R';
+      // For ranges like GR_1-6, return the first grade
+      if (grade === 'GR_1-6') return 'Grade 1';
+      if (grade === 'GR_7-9') return 'Grade 7';
+      if (grade === 'GR_10-11') return 'Grade 10';
+      if (grade === 'GR_12') return 'Grade 12';
+    }
+    
+    return 'Grade 1'; // default
+  };
+
+  // Fetch fees by grade from Supabase database
+  const fetchFeesByGrade = async (grade: string) => {
+    try {
+      setFeesLoading(true);
+      const mappedGrade = mapGradeToDbFormat(grade);
+      console.log(`Starting to fetch fees for grade: ${grade} (mapped to: ${mappedGrade})`);
+      
+      const feeData = await getFeeByGrade(mappedGrade);
+      
+      if (feeData) {
+        setFees(feeData);
+        console.log("Fees fetched successfully from database:", feeData);
+      } else {
+        console.warn(`Failed to fetch fees for grade ${mappedGrade} - will use defaults`);
+        setFees(null);
+      }
+    } catch (err) {
+      console.error("Error in fetchFeesByGrade:", err);
+      setFees(null);
+    } finally {
+      setFeesLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!studentsFromState || studentsFromState.length === 0) {
@@ -52,6 +110,13 @@ const FinancingOption = () => {
     }
     setStudents(studentsFromState);
     setLoading(false);
+
+    // Fetch fees for the first student's grade from Supabase
+    const grade = studentsFromState[0]?.grade_applied_for;
+    console.log(`Student grade: ${grade}`);
+    if (grade) {
+      fetchFeesByGrade(grade);
+    }
   }, [studentsFromState]);
 
   const handleContinue = async () => {
@@ -65,15 +130,13 @@ const FinancingOption = () => {
     const plan = financingPlans.find(p => p.id === selectedPlan);
     if (!plan) return;
 
-    // Save plan to backend if parentId exists
-    if (parentId) {
+    // Save plan to backend if applicationId exists
+    if (applicationId) {
       setSaving(true);
-      console.log("Saving plan for parentId:", parentId, "Plan:", selectedPlan);
+      console.log("Saving plan for applicationId:", applicationId, "Plan:", selectedPlan);
       try {
-        const response = await saveSelectedPlan(parentId, {
-          selected_plan: selectedPlan,
-          total_price: plan.price,
-          period: plan.period
+        const response = await saveSelectedPlan(applicationId, {
+          selected_plan: selectedPlan
         });
         console.log("Plan saved successfully:", response);
       } catch (err) {
@@ -84,11 +147,11 @@ const FinancingOption = () => {
       }
       setSaving(false);
     } else {
-      console.warn("No parentId available, skipping plan save");
+      console.warn("No applicationId available, skipping plan save");
     }
 
     // Navigate to Declaration page first (user requested flow: Financing -> Declaration -> Review)
-    navigate("/re-registration/declaration", { state: { students, selectedPlan, parentId } });
+    navigate("/re-registration/declaration", { state: { students, selectedPlan, applicationId } });
   };
 
   const handlePrevious = () => {
@@ -104,20 +167,33 @@ const FinancingOption = () => {
       </div>
     );
 
-  // Sample data
+  // Use fees from database, with fallback to default values
+  const annualFees = fees?.annual_fee || 85000;
+  const termFees = fees?.term_fee || 21250;
+  const registrationFee = fees?.registration_fee || 800;
+  
+  // Affordability data calculated from actual database fees
   const affordabilityData = {
-    annualFees: 85000,
+    annualFees: annualFees,
     availableIncome: 65000,
-    fundingGap: 20000,
-    ratio: 76,
+    fundingGap: Math.max(0, annualFees - 65000),
+    ratio: Math.round((annualFees / 65000) * 100),
   };
+
+  // Calculate all payment options based on ACTUAL DATABASE FEES
+  const monthlyRate = Math.round(annualFees / 12);
+  const termRateWithDiscount = Math.round(annualFees * 0.97 / 3);
+  const annualRateWithDiscount = Math.round(annualFees * 0.95);
+  const monthlyBNPL = Math.round((annualFees * 1.12) / 12);
+  const monthlyForwardFunding = Math.round((annualFees * 1.15) / 12);
+  const siblingMonthly = Math.round((annualFees * 0.9) / 12 / Math.max(students.length, 1));
 
   const financingPlans: FinancingPlan[] = [
     {
       id: "pay-monthly",
       title: "Monthly Debit Order",
       subtitle: "Zero discount",
-      price: 7083,
+      price: monthlyRate,
       period: "per month",
       badge: { text: "Save 3%", type: "save" },
       features: [
@@ -130,7 +206,7 @@ const FinancingOption = () => {
       id: "pay-term",
       title: "Pay Per Term",
       subtitle: "Save 3%",
-      price: 27483,
+      price: termRateWithDiscount,
       period: "per term",
       badge: { text: "Save 3%", type: "save" },
       features: [
@@ -143,21 +219,21 @@ const FinancingOption = () => {
       id: "pay-once",
       title: "Pay Once Per Year",
       subtitle: "Save 5%",
-      price: 80750,
+      price: annualRateWithDiscount,
       period: "per year",
       badge: { text: "Save 5%", type: "save" },
       recommended: true,
       features: [
         { text: "Maximum discount available", icon: "check" },
         { text: "One payment, no worries", icon: "check" },
-        { text: "Save R 4,250 annually", icon: "check" },
+        { text: `Save R ${(annualFees - annualRateWithDiscount).toLocaleString()} annually`, icon: "check" },
       ],
     },
     {
       id: "buy-now-pay-later",
       title: "Buy Now, Pay Later",
       subtitle: "Flexible option",
-      price: 7933,
+      price: monthlyBNPL,
       period: "per month",
       badge: { text: "12% Cost", type: "cost" },
       features: [
@@ -170,7 +246,7 @@ const FinancingOption = () => {
       id: "forward-funding",
       title: "Forward Funding",
       subtitle: "6-12 months",
-      price: 8125,
+      price: monthlyForwardFunding,
       period: "per month",
       badge: { text: "15% Cost", type: "cost" },
       features: [
@@ -183,13 +259,25 @@ const FinancingOption = () => {
       id: "sibling-benefit",
       title: "Sibling Benefit",
       subtitle: "Multiple children",
-      price: 6375,
+      price: siblingMonthly,
       period: "per child/month",
       badge: { text: "Save 10%", type: "save" },
       features: [
         { text: "10% discount per additional child", icon: "check" },
         { text: "Combined family billing", icon: "check" },
         { text: `${students.length} children selected`, icon: "info" },
+      ],
+    },
+    {
+      id: "pay-via-eft",
+      title: "Pay via EFT",
+      subtitle: "Manual bank transfer",
+      price: annualFees,
+      period: "per year",
+      features: [
+        { text: "Direct bank transfer", icon: "check" },
+        { text: "No intermediary fees", icon: "check" },
+        { text: "School instructions provided", icon: "check" },
       ],
     },
   ];
@@ -393,6 +481,50 @@ const FinancingOption = () => {
                 })}
               </div>
             </div>
+
+            {/* Selected Plan Summary and EFT Instructions */}
+            {selectedPlan && (
+              <div className="space-y-4">
+                <Card className="border-blue-200 bg-blue-50 p-6">
+                  <p className="mb-2 text-sm font-medium text-gray-600">Selected Plan</p>
+                  <h3 className="mb-2 text-lg font-semibold text-blue-900">
+                    {financingPlans.find((p) => p.id === selectedPlan)?.title}
+                  </h3>
+                  <p className="text-lg font-bold text-blue-700">
+                    R {financingPlans.find((p) => p.id === selectedPlan)?.price.toLocaleString()} {financingPlans.find((p) => p.id === selectedPlan)?.period}
+                  </p>
+                </Card>
+
+                {selectedPlan === "pay-via-eft" && (
+                  <Card className="border-amber-200 bg-amber-50 p-6 space-y-4">
+                    <h4 className="font-semibold text-amber-900">EFT Payment Instructions</h4>
+                    <div className="space-y-3 text-sm text-amber-800">
+                      <div>
+                        <span className="font-medium block">School Bank Account:</span>
+                        <p className="text-gray-700">KNIT School Trust Account</p>
+                      </div>
+                      <div>
+                        <span className="font-medium block">Account Number:</span>
+                        <p className="text-gray-700">62 108 9876 5432</p>
+                      </div>
+                      <div>
+                        <span className="font-medium block">Branch Code:</span>
+                        <p className="text-gray-700">250655</p>
+                      </div>
+                      <div>
+                        <span className="font-medium block">Reference Format:</span>
+                        <p className="text-gray-700">STUDENT_ID-YEAR (e.g., ST12345-2025)</p>
+                      </div>
+                    </div>
+                    <div className="rounded border border-amber-100 bg-white p-3">
+                      <p className="text-xs text-gray-600">
+                        <span className="font-medium">📌 Important:</span> Please upload proof of payment after transfer or submit to school office. Use the reference format above for quick reconciliation.
+                      </p>
+                    </div>
+                  </Card>
+                )}
+              </div>
+            )}
 
             {/* Qualifications and Required Docs */}
             <div className="grid gap-4 sm:grid-cols-2">

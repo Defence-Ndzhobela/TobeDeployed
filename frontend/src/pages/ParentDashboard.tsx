@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Loader2, Bell, AlertCircle, CheckCircle, Clock, Eye, TrendingUp, DollarSign, Download } from "lucide-react";
+import { Plus, Loader2, AlertCircle, Eye, TrendingUp, DollarSign, Download } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import axios from "axios";
+import { studentDataService } from "@/services/studentDataService";
+import { getFeeByGrade } from "@/services/schoolFeesService";
+import RequestStatement from "./RequestStatement";
+import BankAccountModal from "@/components/BankAccountModal";
 
 interface Learner {
   id: string;
+  application_id?: string;
   first_name: string;
   surname: string;
   student_id: string;
@@ -23,10 +27,19 @@ interface Learner {
 }
 
 interface FeeBreakdown {
-  tuition_fees: number;
-  activity_fees: number;
-  facility_fees: number;
-  other_fees: number;
+  annual_fee: number;
+  term_fee: number;
+  registration_fee: number;
+  re_registration_fee: number;
+  sport_fee: number;
+}
+
+interface BankAccountDetails {
+  account_holder_name: string;
+  bank_name: string;
+  account_type: string;
+  account_number: string;
+  branch_code: string;
 }
 
 interface DashboardData {
@@ -37,27 +50,136 @@ interface DashboardData {
   fee_breakdown: FeeBreakdown;
 }
 
-interface StudentResponse {
-  students?: Array<{
-    application_id?: string;
-    id_number: string;
-    first_name: string;
-    surname: string;
-    grade_applied_for?: string;
-  }>;
-}
-
 const ParentDashboard = () => {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showRequestStatementModal, setShowRequestStatementModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedLearnerForPayment, setSelectedLearnerForPayment] = useState<Learner | null>(null);
+  const [bankDetails, setBankDetails] = useState<BankAccountDetails>({
+    account_holder_name: '',
+    bank_name: '',
+    account_type: 'Cheque',
+    account_number: '',
+    branch_code: '',
+  });
 
-  const parentIdNumber = localStorage.getItem("parent_id_number");
+  const userId = localStorage.getItem("user_id");
+
+  // Fetch bank account details from fee_responsibility table
+  const fetchBankDetails = async () => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api';
+      const token = localStorage.getItem('access_token');
+      
+      if (!selectedLearnerForPayment) {
+        console.warn("❌ No learner selected");
+        return;
+      }
+
+      // Prefer application_id if available, fall back to student ID
+      const lookupId = selectedLearnerForPayment.application_id || selectedLearnerForPayment.id;
+      const lookupType = selectedLearnerForPayment.application_id ? "application_id" : "student_id";
+      
+      console.log(`📍 Fetching payment details for ${lookupType}: ${lookupId}`);
+      console.log(`📍 Student: ${selectedLearnerForPayment.first_name} ${selectedLearnerForPayment.surname}`);
+      
+      // Use application_id if available for more efficient lookup
+      let url: string;
+      if (selectedLearnerForPayment.application_id) {
+        url = `${API_BASE_URL}/parents/payment-details-by-app/${selectedLearnerForPayment.application_id}`;
+      } else {
+        url = `${API_BASE_URL}/parents/payment-details/${selectedLearnerForPayment.id}`;
+      }
+      
+      console.log(`📍 URL: ${url}`);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log(`📍 Response status: ${response.status}`);
+
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log(`📦 Full response data:`, JSON.stringify(responseData, null, 2));
+        
+        // Handle response format: { message: "...", payment_details: {...} }
+        let details = responseData.payment_details || responseData;
+        
+        console.log(`📦 Details object:`, JSON.stringify(details, null, 2));
+        console.log(`📦 Details keys:`, details ? Object.keys(details) : 'no details object');
+        
+        if (details && typeof details === 'object' && Object.keys(details).length > 0) {
+          console.log(`✅ Setting bank details...`);
+          const newBankDetails = {
+            account_holder_name: details.account_holder_name !== undefined && details.account_holder_name !== null ? details.account_holder_name : '',
+            bank_name: details.bank_name !== undefined && details.bank_name !== null ? details.bank_name : '',
+            account_type: details.account_type || 'Cheque',
+            account_number: details.account_number !== undefined && details.account_number !== null ? details.account_number : '',
+            branch_code: details.branch_code !== undefined && details.branch_code !== null ? details.branch_code : '',
+          };
+          console.log(`✅ New bank details:`, newBankDetails);
+          setBankDetails(newBankDetails);
+          console.log("✅ Payment details fetched successfully");
+          console.log(`✅ Bank: ${details.bank_name}`);
+          console.log(`✅ Account: ${details.account_number}`);
+          console.log(`✅ Account Holder: ${details.account_holder_name}`);
+        } else {
+          console.warn("⚠️ Details object is empty or invalid", details);
+          setBankDetails({
+            account_holder_name: '',
+            bank_name: '',
+            account_type: 'Cheque',
+            account_number: '',
+            branch_code: '',
+          });
+        }
+      } else {
+        console.warn("❌ Failed to fetch payment details. Status:", response.status);
+        const errorText = await response.text();
+        console.warn("❌ Error response:", errorText);
+        setBankDetails({
+          account_holder_name: '',
+          bank_name: '',
+          account_type: 'Cheque',
+          account_number: '',
+          branch_code: '',
+        });
+      }
+    } catch (err) {
+      console.error("❌ Error fetching payment details:", err);
+      setBankDetails({
+        account_holder_name: '',
+        bank_name: '',
+        account_type: 'Cheque',
+        account_number: '',
+        branch_code: '',
+      });
+    }
+  };
+
+  // Handle Make Payment button click
+  const handleMakePayment = async (learner: Learner) => {
+    setSelectedLearnerForPayment(learner);
+    setShowPaymentModal(true);
+  };
+
+  // Fetch payment details when modal opens or learner changes
+  useEffect(() => {
+    if (showPaymentModal && selectedLearnerForPayment) {
+      fetchBankDetails();
+    }
+  }, [showPaymentModal, selectedLearnerForPayment?.id]);
 
   useEffect(() => {
-    if (!parentIdNumber) {
-      navigate("/");
+    if (!userId) {
+      navigate("/login");
       return;
     }
 
@@ -65,61 +187,107 @@ const ParentDashboard = () => {
       try {
         setLoading(true);
         
-        // First, try to fetch from the dashboard endpoint
-        try {
-          const response = await axios.get<DashboardData>(`${import.meta.env.VITE_API_BASE_URL}/parents/${parentIdNumber}/dashboard`);
-          setDashboardData(response.data);
-          return;
-        } catch (dashboardError) {
-          console.log("Dashboard endpoint not available, fetching students directly...");
-        }
-
-        // If dashboard endpoint fails, fetch students directly
-        const studentsResponse = await axios.get<StudentResponse>(`${import.meta.env.VITE_API_BASE_URL}/parents/${parentIdNumber}/students`);
-        const students = studentsResponse.data.students || [];
-
-        if (students.length === 0) {
-          console.warn("No students found for parent");
+        // Get all applications for this user
+        const applications = await studentDataService.getApplicationsForUser(userId);
+        
+        if (applications.length === 0) {
+          console.warn("No applications found for user");
           setDashboardData(getMockDashboardData());
           return;
         }
 
-        // Calculate dashboard data from students
-        const totalLearners = students.length;
-        const monthlyFeePerStudent = 4500; // This should come from a fee table ideally
-        const totalMonthlyFees = totalLearners * monthlyFeePerStudent;
-        
-        // Transform student data to Learner format
-        const learners: Learner[] = students.map((student) => ({
-          id: student.application_id || student.id_number,
-          first_name: student.first_name,
-          surname: student.surname,
-          student_id: student.id_number,
-          grade: student.grade_applied_for || "N/A",
-          monthly_fee: monthlyFeePerStudent,
-          paid_this_month: 0, // This should come from payments table
-          outstanding_amount: monthlyFeePerStudent, // This should come from payments table
-          next_payment_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          facility_linked: true,
-          payment_status: "partial" as const,
-        }));
+        const learners: Learner[] = [];
+        let totalMonthlyFees = 0;
+        let totalOutstanding = 0;
+        let totalAnnualFees = 0;
+        let totalTermFees = 0;
+        let totalRegistrationFees = 0;
+        let totalReRegistrationFees = 0;
+        let totalSportFees = 0;
+
+        // Fetch data for each application
+        for (const app of applications) {
+          const students = await studentDataService.getStudentsByApplicationId(app.id);
+          
+          for (const student of students) {
+            const paidAmount = await studentDataService.calculatePaidAmount(student.id);
+            
+            // Fetch fees from database based on grade
+            let monthlyFee = 5000; // Default fallback
+            let annualFee = 60000;
+            let termFee = 15000;
+            let registrationFee = 800;
+            let reRegistrationFee = 400;
+            let sportFee = 0;
+
+            const grade = student.grade_applied_for || "Grade 10";
+            const dbFees = await getFeeByGrade(grade);
+            
+            if (dbFees) {
+              // Use actual fees from database
+              annualFee = dbFees.annual_fee;
+              termFee = dbFees.term_fee;
+              registrationFee = dbFees.registration_fee;
+              reRegistrationFee = dbFees.re_registration_fee;
+              sportFee = dbFees.sport_fee || 0;
+              
+              // Calculate monthly fee from annual fee
+              monthlyFee = Math.round(dbFees.annual_fee / 12);
+            }
+
+            const outstanding = Math.max(0, monthlyFee - paidAmount);
+            const nextPaymentDate = await studentDataService.getNextPaymentDueDate(student.id);
+            
+            const paymentStatus = outstanding === 0 ? "up-to-date" : outstanding < monthlyFee * 0.5 ? "partial" : "overdue";
+
+            learners.push({
+              id: student.id,
+              application_id: app.id,
+              first_name: student.first_name,
+              surname: student.surname,
+              student_id: student.id_number,
+              grade: student.grade_applied_for || "N/A",
+              monthly_fee: monthlyFee,
+              paid_this_month: paidAmount,
+              outstanding_amount: outstanding,
+              next_payment_date: nextPaymentDate.toISOString().split('T')[0],
+              facility_linked: true,
+              payment_status: paymentStatus as "up-to-date" | "partial" | "overdue" | "no-facility",
+            });
+
+            totalMonthlyFees += monthlyFee;
+            totalOutstanding += outstanding;
+            totalAnnualFees += annualFee;
+            totalTermFees += termFee;
+            totalRegistrationFees += registrationFee;
+            totalReRegistrationFees += reRegistrationFee;
+            totalSportFees += sportFee;
+          }
+        }
+
+        if (learners.length === 0) {
+          setDashboardData(getMockDashboardData());
+          return;
+        }
 
         const dashboardDataCalculated: DashboardData = {
-          total_learners: totalLearners,
+          total_learners: learners.length,
           total_monthly_fees: totalMonthlyFees,
-          outstanding_amount: totalMonthlyFees,
+          outstanding_amount: totalOutstanding,
           learners: learners,
           fee_breakdown: {
-            tuition_fees: totalMonthlyFees * 0.6,
-            activity_fees: totalMonthlyFees * 0.18,
-            facility_fees: totalMonthlyFees * 0.14,
-            other_fees: totalMonthlyFees * 0.08,
+            annual_fee: totalAnnualFees,
+            term_fee: totalTermFees,
+            registration_fee: totalRegistrationFees,
+            re_registration_fee: totalReRegistrationFees,
+            sport_fee: totalSportFees,
           },
         };
 
         setDashboardData(dashboardDataCalculated);
       } catch (err: any) {
         console.error("❌ Error fetching dashboard data:", err);
+        setError(err.message || "Failed to load dashboard data");
         // Fallback to mock data
         setDashboardData(getMockDashboardData());
       } finally {
@@ -128,7 +296,7 @@ const ParentDashboard = () => {
     };
 
     fetchDashboardData();
-  }, [parentIdNumber, navigate]);
+  }, [userId, navigate]);
 
   // Mock data for development
   const getMockDashboardData = (): DashboardData => {
@@ -139,6 +307,7 @@ const ParentDashboard = () => {
       learners: [
         {
           id: "1",
+          application_id: "app-001",
           first_name: "Junior",
           surname: "Ndzhobela",
           student_id: "STU001",
@@ -152,6 +321,7 @@ const ParentDashboard = () => {
         },
         {
           id: "2",
+          application_id: "app-002",
           first_name: "Thandi",
           surname: "Ndzhobela",
           student_id: "STU002",
@@ -165,10 +335,11 @@ const ParentDashboard = () => {
         },
       ],
       fee_breakdown: {
-        tuition_fees: 5000,
-        activity_fees: 1500,
-        facility_fees: 1200,
-        other_fees: 800,
+        annual_fee: 63000,
+        term_fee: 15750,
+        registration_fee: 800,
+        re_registration_fee: 400,
+        sport_fee: 0,
       },
     };
   };
@@ -242,7 +413,10 @@ const ParentDashboard = () => {
             <Button onClick={() => navigate("/fee-forecasting")} className="gap-2 bg-purple-600 hover:bg-purple-700 text-white">
               📊 Fee Forecasting
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700 text-white">
+            <Button onClick={() => navigate("/ai-assistant")} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
+              🤖 AI Assistant
+            </Button>
+            <Button onClick={() => setShowRequestStatementModal(true)} className="bg-green-600 hover:bg-green-700 text-white">
               Request Statement
             </Button>
           </div>
@@ -437,36 +611,43 @@ const ParentDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Fee Breakdown</CardTitle>
-                <CardDescription>Monthly fee structure</CardDescription>
+                <CardDescription>School fees structure</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between items-center pb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded" style={{ backgroundColor: "#4A91E2" }}></div>
-                    <span className="text-sm text-muted-foreground">Tuition Fees</span>
+                    <span className="text-sm text-muted-foreground">Annual Fee</span>
                   </div>
-                  <span className="font-semibold">R {dashboardData.fee_breakdown.tuition_fees.toLocaleString()}</span>
+                  <span className="font-semibold">R {dashboardData.fee_breakdown.annual_fee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded" style={{ backgroundColor: "#7ED321" }}></div>
-                    <span className="text-sm text-muted-foreground">Activity Fees</span>
+                    <span className="text-sm text-muted-foreground">Term Fee</span>
                   </div>
-                  <span className="font-semibold">R {dashboardData.fee_breakdown.activity_fees.toLocaleString()}</span>
+                  <span className="font-semibold">R {dashboardData.fee_breakdown.term_fee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded" style={{ backgroundColor: "#EBB30B" }}></div>
-                    <span className="text-sm text-muted-foreground">Facility Fees</span>
+                    <span className="text-sm text-muted-foreground">Registration Fee</span>
                   </div>
-                  <span className="font-semibold">R {dashboardData.fee_breakdown.facility_fees.toLocaleString()}</span>
+                  <span className="font-semibold">R {dashboardData.fee_breakdown.registration_fee.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center pb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: "#F59E0B" }}></div>
+                    <span className="text-sm text-muted-foreground">Re-registration Fee</span>
+                  </div>
+                  <span className="font-semibold">R {dashboardData.fee_breakdown.re_registration_fee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded" style={{ backgroundColor: "#9DA3AF" }}></div>
-                    <span className="text-sm text-muted-foreground">Other Fees</span>
+                    <span className="text-sm text-muted-foreground">Sport Fee</span>
                   </div>
-                  <span className="font-semibold">R {dashboardData.fee_breakdown.other_fees.toLocaleString()}</span>
+                  <span className="font-semibold">R {dashboardData.fee_breakdown.sport_fee.toLocaleString()}</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between items-center">
                   <span className="font-semibold">Total Monthly</span>
@@ -503,6 +684,7 @@ const ParentDashboard = () => {
                       <Button
                         size="sm"
                         className="w-full bg-primary hover:bg-primary/90 text-white text-xs"
+                        onClick={() => handleMakePayment(learner)}
                       >
                         Make Payment
                       </Button>
@@ -513,6 +695,23 @@ const ParentDashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Request Statement Modal */}
+      <RequestStatement 
+        open={showRequestStatementModal} 
+        onOpenChange={setShowRequestStatementModal} 
+      />
+
+      {/* Bank Account Modal for Payment */}
+      {selectedLearnerForPayment && (
+        <BankAccountModal
+          open={showPaymentModal}
+          onOpenChange={setShowPaymentModal}
+          bankDetails={bankDetails}
+          learnerName={`${selectedLearnerForPayment.first_name} ${selectedLearnerForPayment.surname}`}
+          monthlyFee={selectedLearnerForPayment.monthly_fee}
+        />
+      )}
     </div>
   );
 };

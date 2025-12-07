@@ -1,24 +1,25 @@
 // frontend/src/pages/ReRegistration.tsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Check, MapPin, Users, ArrowRight, GraduationCap, Loader2 } from "lucide-react";
+import { Calendar, Check, Users, ArrowRight, GraduationCap, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import ProgressSteps from "@/components/ProgressSteps";
 import ProgressBar from "@/components/ProgressBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { fetchParentChildren } from "@/api/parentApi";
+import { studentDataService } from "@/services/studentDataService";
 
 const ReRegistration = () => {
   const navigate = useNavigate();
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const parentId = localStorage.getItem("parent_id_number"); // logged-in parent
+  const userId = localStorage.getItem("user_id"); // logged-in user (JWT)
 
   const toggleStudent = (id: string) => {
     setSelectedStudents((prev) =>
@@ -26,46 +27,65 @@ const ReRegistration = () => {
     );
   };
 
-  // Fetch children dynamically from database
+  // Fetch children dynamically from Supabase database
   useEffect(() => {
-    if (!parentId) return;
+    if (!userId) {
+      navigate("/login");
+      return;
+    }
 
     const fetchStudents = async () => {
       try {
-        const data = await fetchParentChildren(parentId);
-        if (!data || data.length === 0) {
-          console.warn("No students found for this parent.");
+        setLoading(true);
+        
+        // Get all applications for this user
+        const applications = await studentDataService.getApplicationsForUser(userId);
+        
+        if (!applications || applications.length === 0) {
+          console.warn("No applications found for this user.");
           setStudents([]);
           return;
         }
 
-        const mapped = data.map((stu: any) => ({
-          id: stu.application_id,
-          name: `${stu.first_name} ${stu.surname}`,
-          grade: stu.grade_applied_for,
-          studentId: stu.id_number,
-          dob: stu.date_of_birth,
-          city: stu.city,
-          state: stu.state,
-          streetAddress: stu.street_address,
-          postcode: stu.postcode,
-          phoneNumber: stu.phone_number,
-          email: stu.email,
-          avatar: "/placeholder.svg",
-          initials: `${stu.first_name[0]}${stu.surname[0]}`,
-          rawData: stu, // pass full student object
-        }));
+        const studentsList: any[] = [];
 
-        setStudents(mapped);
-      } catch (err) {
+        // Fetch students for each application
+        for (const app of applications) {
+          const appStudents = await studentDataService.getStudentsByApplicationId(app.id);
+          
+          for (const student of appStudents) {
+            const mapped = {
+              id: student.id,
+              application_id: app.id,
+              name: `${student.first_name} ${student.surname}`,
+              grade: student.previous_grade || "N/A",
+              studentId: student.id_number,
+              dob: student.date_of_birth,
+              city: student.city || "N/A",
+              state: student.state || "N/A",
+              streetAddress: student.street_address || "N/A",
+              postcode: student.postcode || "N/A",
+              phoneNumber: student.phone_number || "N/A",
+              email: student.email || "N/A",
+              avatar: "/placeholder.svg",
+              initials: `${student.first_name[0]}${student.surname[0]}`.toUpperCase(),
+              rawData: student, // pass full student object
+            };
+            studentsList.push(mapped);
+          }
+        }
+
+        setStudents(studentsList);
+      } catch (err: any) {
         console.error("❌ Error fetching students:", err);
+        setError(err.message || "Failed to load students");
       } finally {
         setLoading(false);
       }
     };
 
     fetchStudents();
-  }, [parentId]);
+  }, [userId, navigate]);
 
   const steps = [
     { number: 1, title: "Select Children", description: "Choose students to re-register", completed: false, active: true },
@@ -216,10 +236,6 @@ const ReRegistration = () => {
                             <Calendar className="h-4 w-4" />
                             <span>{new Date(student.dob).toLocaleDateString()}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            <span>{student.city}, {student.state} {student.postcode}</span>
-                          </div>
                         </div>
                       </button>
                     ))
@@ -282,7 +298,7 @@ const ReRegistration = () => {
                       students: students
                         .filter((s) => selectedStudents.includes(s.id))
                         .map((s) => s.rawData),
-                      parentId,
+                      userId,
                     },
                   })
                 }

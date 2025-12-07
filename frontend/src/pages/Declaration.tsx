@@ -114,6 +114,9 @@ const DeclarationPage: React.FC = () => {
   // Get parentId from state or localStorage
   const parentId = parentIdFromState || localStorage.getItem("parent_id_number") || '';
 
+  // Get application_id from first student
+  const applicationId = incomingStudents?.[0]?.application_id || localStorage.getItem("application_id") || '';
+
   const autoSaveTimeoutRef = useRef<number | null>(null);
 
   const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
@@ -138,33 +141,50 @@ const DeclarationPage: React.FC = () => {
   const showFullNameError = touched.fullName && fullName.trim().length < 3;
 
   const runAutoSave = useCallback(async () => {
+    // Only auto-save if full_name is valid (at least 3 characters)
+    if (!fullName || fullName.trim().length < 3) {
+      console.log('Skipping auto-save: full_name too short');
+      setAutoSaveStatus(AutoSaveStatus.Idle);
+      return;
+    }
+
     setAutoSaveStatus(AutoSaveStatus.Saving);
     try {
+      const userId = localStorage.getItem('user_id');
       const response = await fetch(`${API_BASE_URL}/declarations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          confirmations,
-          fullName,
-          city,
-          date: today.replace(/\//g, '-'),
+          application_id: applicationId,
+          agree_truth: confirmations.agree_truth,
+          agree_policies: confirmations.agree_policies,
+          agree_financial: confirmations.agree_financial,
+          agree_verification: confirmations.agree_verification,
+          agree_data_processing: confirmations.agree_data_processing,
+          agree_audit_storage: confirmations.agree_audit,
+          agree_affordability_processing: confirmations.agree_affordability,
+          full_name: fullName,
+          city: city,
           status: 'in_progress',
+          signed: false,
+          date_signed: null,
+          user_id: userId,
         }),
       });
       if (!response.ok) {
         throw new Error('Failed to save data');
       }
-      console.log('Data saved successfully.');
+      console.log('Declaration auto-saved successfully.');
       setAutoSaveStatus(AutoSaveStatus.Saved);
     } catch (error) {
-      console.error('Error saving data:', error);
+      console.error('Error saving declaration:', error);
       setAutoSaveStatus(AutoSaveStatus.Idle);
     } finally {
       setTimeout(() => setAutoSaveStatus(AutoSaveStatus.Idle), 2000);
     }
-  }, [confirmations, fullName, city, today]);
+  }, [confirmations, fullName, city, applicationId]);
 
   useEffect(() => {
     if (autoSaveTimeoutRef.current) {
@@ -197,17 +217,27 @@ const DeclarationPage: React.FC = () => {
   const handleSaveProgress = async () => {
     console.log('Saving progress...');
     try {
+      const userId = localStorage.getItem('user_id');
       const response = await fetch(`${API_BASE_URL}/declarations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          confirmations,
-          fullName,
-          city,
-          date: today.replace(/\//g, '-'),
+          application_id: applicationId,
+          agree_truth: confirmations.agree_truth,
+          agree_policies: confirmations.agree_policies,
+          agree_financial: confirmations.agree_financial,
+          agree_verification: confirmations.agree_verification,
+          agree_data_processing: confirmations.agree_data_processing,
+          agree_audit_storage: confirmations.agree_audit,
+          agree_affordability_processing: confirmations.agree_affordability,
+          full_name: fullName,
+          city: city,
           status: 'in_progress',
+          signed: false,
+          date_signed: null,
+          user_id: userId,
         }),
       });
       if (!response.ok) {
@@ -229,17 +259,28 @@ const DeclarationPage: React.FC = () => {
     // Submit declaration in the background (fire-and-forget). Errors are logged but do not block navigation.
     (async () => {
       try {
+        const userId = localStorage.getItem('user_id');
+        const dateSigned = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
         const response = await fetch(`${API_BASE_URL}/declarations`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            confirmations,
-            fullName,
-            city,
-            date: today.replace(/\//g, '-'),
+            application_id: applicationId,
+            agree_truth: confirmations.agree_truth,
+            agree_policies: confirmations.agree_policies,
+            agree_financial: confirmations.agree_financial,
+            agree_verification: confirmations.agree_verification,
+            agree_data_processing: confirmations.agree_data_processing,
+            agree_audit_storage: confirmations.agree_audit,
+            agree_affordability_processing: confirmations.agree_affordability,
+            full_name: fullName,
+            city: city,
             status: 'completed',
+            signed: true,
+            date_signed: dateSigned,
+            user_id: userId,
           }),
         });
         if (!response.ok) {

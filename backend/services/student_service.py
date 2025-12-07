@@ -68,6 +68,51 @@ def get_students_by_parent_id(parent_id: str):
     except Exception as e:
         print(f"❌ [get_students_by_parent_id] Error: {e}")
         raise e
+
+# ✅ Fetch all students for a user (via user_id from auth)
+def get_students_by_user_id(user_id: str):
+    """
+    Fetch all students linked to a user by their user_id from auth.users.
+    This queries the applications table to find the parent's id, then gets students.
+    """
+    try:
+        print(f"🔍 Fetching students for user_id={user_id}")
+
+        # First, get the application linked to this user_id
+        app_response = (
+            supabase.table("applications")
+            .select("parent_id_number")
+            .eq("user_id", user_id)
+            .execute()
+        )
+
+        if not app_response.data or len(app_response.data) == 0:
+            print(f"⚠️ No applications found for user_id={user_id}")
+            return []
+
+        parent_id_number = app_response.data[0]["parent_id_number"]
+        print(f"Found parent_id_number: {parent_id_number}")
+
+        # Now get students for this parent
+        students_response = (
+            supabase.table("students")
+            .select(
+                "application_id, first_name, surname, grade_applied_for, id_number, gender, date_of_birth, street_address, city, state, postcode, phone_number, email, status, monthly_fee, previous_grade"
+            )
+            .eq("parent_id", parent_id_number)
+            .execute()
+        )
+
+        if not students_response.data:
+            print("⚠️ No students found for this parent.")
+            return []
+
+        print(f"✅ Found {len(students_response.data)} students")
+        return students_response.data
+
+    except Exception as e:
+        print(f"❌ [get_students_by_user_id] Error: {e}")
+        raise e
     
 def update_student_by_id_number(id_number: str, student_data: dict):
     # Fetch student first
