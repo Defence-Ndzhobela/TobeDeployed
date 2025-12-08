@@ -138,7 +138,7 @@ const AIAssistant: React.FC = () => {
             let sportFee = 0;
             let otherFee = 400;
 
-            const grade = student.previous_grade || "Grade 10";
+            const grade = student.grade_applied_for || "Grade 10";
             const dbFees = await getFeeByGrade(grade);
             
             if (dbFees) {
@@ -163,7 +163,7 @@ const AIAssistant: React.FC = () => {
               first_name: student.first_name,
               surname: student.surname,
               student_id: student.id_number,
-              grade: student.previous_grade || "N/A",
+              grade: student.grade_applied_for || "N/A",
               monthly_fee: monthlyFee,
               paid_this_month: paidAmount,
               outstanding_amount: outstanding,
