@@ -3,6 +3,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/config/apiConfig";
 
+const APP_URL = import.meta.env.VITE_APP_URL || 'http://localhost:8080';
+
 interface HeaderProps {
   showNotifications?: boolean;
 }
@@ -110,7 +112,7 @@ const Header = ({ showNotifications = true }: HeaderProps) => {
             </button>
           )}
           <button
-            onClick={() => window.location.href = "http://localhost:8080/"}
+            onClick={() => window.location.href = APP_URL}
             className="rounded-full p-2 hover:bg-red-100 transition-colors"
             title="Logout"
           >
