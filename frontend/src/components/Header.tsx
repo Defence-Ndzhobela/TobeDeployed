@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/config/apiConfig";
 
-const APP_URL = import.meta.env.VITE_APP_URL || 'http://localhost:8080';
+const APP_URL = import.meta.env.VITE_APP_URL || 'https://knitcash-t2h7.onrender.com/';
 
 interface HeaderProps {
   showNotifications?: boolean;
