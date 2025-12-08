@@ -1,12 +1,16 @@
 // src/config/apiConfig.ts
 /**
- * Centralized API configuration
- * All API calls should use this configuration to ensure consistency
+ * Centralized configuration for all URLs
+ * All base URLs are defined once here and imported wherever needed across the app
  */
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+// API Base URL - backend API endpoint
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api';
 
-// You can export specific endpoint URLs if needed
+// Application Base URL - frontend home/landing page
+export const APP_URL = import.meta.env.VITE_APP_URL || 'http://localhost:8080/';
+
+// API Endpoints
 export const API_ENDPOINTS = {
   // Parent endpoints
   PARENTS: `${API_BASE_URL}/parents`,
@@ -15,6 +19,9 @@ export const API_ENDPOINTS = {
   // Student endpoints
   STUDENTS: `${API_BASE_URL}/students`,
   
-  // Declaration endpoints (adjust if needed based on your backend)
+  // User endpoints
+  USER: `${API_BASE_URL}/user`,
+  
+  // Declaration endpoints
   DECLARATIONS: `${API_BASE_URL}/declarations`,
 };
